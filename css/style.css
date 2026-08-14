@@ -83,18 +83,30 @@
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
-html, body {
+html {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* position:fixed + overflow:hidden sperrt das Dokument komplett gegen jedes
+   Scrollen. Nötig weil mobile Browser (v. a. iOS Safari) beim Fokussieren
+   der Suchleiste sonst automatisch versuchen, das Feld "ins Bild zu scrollen"
+   und dabei die ganze Seite sichtbar verschieben (Layout hing dann links im
+   Rand mit weißem Rand rechts). Die App verwaltet ihr Layout ohnehin
+   komplett selbst über #app/.page-Transforms, Dokument-Scroll wird nirgends
+   gebraucht. */
+body {
+  position: fixed;
+  inset: 0;
+  width: 100%;
   height: 100%;
   margin: 0;
+  overflow: hidden;
   background: var(--grouped-bg);
   color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;
-  /* Verhindert, dass mobile Browser die Seite beim Fokussieren der Suchleiste
-     (Scroll-into-view fürs Einblenden der Tastatur) seitlich verschieben. */
-  overflow-x: hidden;
-  width: 100%;
 }
 
 button, input {
