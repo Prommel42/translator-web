@@ -592,7 +592,10 @@ function openSearch() {
     renderSearchPageContent();
     updateGestureZones();
   });
-  setTimeout(() => searchInputEl.focus(), 300);
+  // Fokus MUSS synchron im User-Gesture-Handler passieren, sonst blockiert
+  // mobile Safari/Chrome das automatische Einblenden der Bildschirmtastatur
+  // (ein setTimeout davor bricht die "trusted event"-Kette).
+  searchInputEl.focus();
 }
 
 function performGoHome() {

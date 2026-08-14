@@ -197,7 +197,21 @@ a { color: inherit; text-decoration: none; }
   flex-shrink: 0;
 }
 .no-key-banner .icon-wrap { color: var(--orange); font-size: 19px; flex-shrink: 0; }
-.no-key-banner .icon-wrap::before { content: ""; display: block; width: 1em; height: 1em; background: currentColor; -webkit-mask: var(--icon-key-slash) center/contain no-repeat; mask: var(--icon-key-slash) center/contain no-repeat; }
+.no-key-banner .icon-wrap::before {
+  content: "";
+  display: block;
+  width: 1em;
+  height: 1em;
+  background: currentColor;
+  -webkit-mask-image: var(--icon-key-slash);
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-image: var(--icon-key-slash);
+  mask-position: center;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+}
 .banner-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .banner-title { font-size: 15px; font-weight: 600; }
 .banner-sub { font-size: 12px; color: var(--text-secondary); }
@@ -271,7 +285,21 @@ a { color: inherit; text-decoration: none; }
 }
 .search-input::placeholder { color: var(--text-secondary); }
 .clear-btn { width: 18px; height: 18px; color: var(--text-secondary); flex-shrink: 0; }
-.clear-btn::before { content: ""; display: block; width: 100%; height: 100%; background: currentColor; -webkit-mask: var(--icon-xmark) center/contain no-repeat; mask: var(--icon-xmark) center/contain no-repeat; }
+.clear-btn::before {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: currentColor;
+  -webkit-mask-image: var(--icon-xmark);
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-image: var(--icon-xmark);
+  mask-position: center;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+}
 .cancel-btn { color: var(--accent); font-size: 16px; white-space: nowrap; flex-shrink: 0; }
 
 .settings-btn {
@@ -287,7 +315,21 @@ a { color: inherit; text-decoration: none; }
   font-size: 20px;
   flex-shrink: 0;
 }
-.settings-btn::before { content: ""; display: block; width: 1.05em; height: 1.05em; background: currentColor; -webkit-mask: var(--icon-gear) center/contain no-repeat; mask: var(--icon-gear) center/contain no-repeat; }
+.settings-btn::before {
+  content: "";
+  display: block;
+  width: 1.05em;
+  height: 1.05em;
+  background: currentColor;
+  -webkit-mask-image: var(--icon-gear);
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-image: var(--icon-gear);
+  mask-position: center;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+}
 .settings-btn:active { opacity: 0.5; }
 
 /* ---------- Nav-Indicator ---------- */
@@ -579,7 +621,21 @@ a { color: inherit; text-decoration: none; }
 .toggle-row { cursor: pointer; padding: 4px 0; }
 .link-row { display: flex; align-items: center; gap: 10px; color: var(--accent); font-size: 15px; font-weight: 500; }
 .link-row .icon-wrap { width: 17px; height: 17px; }
-.link-row .icon-wrap::before { content: ""; display: block; width: 100%; height: 100%; background: currentColor; -webkit-mask: var(--icon-safari) center/contain no-repeat; mask: var(--icon-safari) center/contain no-repeat; }
+.link-row .icon-wrap::before {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: currentColor;
+  -webkit-mask-image: var(--icon-safari);
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-image: var(--icon-safari);
+  mask-position: center;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+}
 
 .text-input {
   width: 100%;

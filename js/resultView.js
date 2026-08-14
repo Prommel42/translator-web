@@ -132,7 +132,13 @@ export function renderResults(container, results, query, sourceLang, targetLang,
   const list = document.createElement("div");
   list.className = "result-list";
 
-  roms.forEach((rom) => {
+  roms.forEach((rom, i) => {
+    if (i > 0) {
+      const divider = document.createElement("div");
+      divider.className = "rom-divider";
+      list.appendChild(divider);
+    }
+
     const section = document.createElement("div");
     section.className = "rom-section";
 
