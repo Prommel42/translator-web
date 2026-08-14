@@ -334,7 +334,18 @@ searchInputEl.addEventListener("keydown", (e) => {
 });
 
 searchInputEl.addEventListener("focus", () => {
-  if (!state.isSearching) openSearch();
+  if (!state.isSearching) {
+    openSearch();
+  } else {
+    // Selbstheilung: Egal ob eine hängengebliebene Wisch-Geste oder ein
+    // Browser-Eigenheit-Resize die Seite vorher verschoben hat - sobald
+    // tatsächlich getippt wird, erzwingen wir die garantiert korrekte
+    // Position. Auch eine evtl. hängende Geste wird hart abgebrochen.
+    abortDrag();
+    homePageEl.classList.remove("animated");
+    searchPageEl.classList.remove("animated");
+    setPageOffsets(0);
+  }
 });
 
 searchInputEl.addEventListener("blur", () => {
@@ -715,6 +726,20 @@ function determineMode(side) {
 }
 
 let drag = null;
+let dragWatchdog = null;
+
+// Bricht eine hängende Geste sicher ab (keine Aktion auslösen, nur die
+// Optik zurücksetzen). Wird von cancel/lostpointercapture UND dem
+// Watchdog-Timer benutzt - beides Fälle, in denen wir kein "up" bekommen
+// haben und daher NIE committen dürfen.
+function abortDrag() {
+  if (!drag) return;
+  const { mode } = drag;
+  drag = null;
+  clearTimeout(dragWatchdog);
+  if (mode === "home" || mode === "open-search") resetPagesVisual();
+  else resetCarouselVisual();
+}
 
 function bindEdgeZone(el, side) {
   el.addEventListener("pointerdown", (e) => {
@@ -726,7 +751,14 @@ function bindEdgeZone(el, side) {
       deciding: true, horizontal: false, curPx: 0,
       lastX: e.clientX, lastT: performance.now(), velocity: 0,
     };
-    el.setPointerCapture(e.pointerId);
+    try { el.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    // Sicherheitsnetz: kommt aus irgendeinem Grund nie ein up/cancel/
+    // lostpointercapture (z. B. weil das Keyboard-UI das Event schluckt),
+    // wird die Geste nach 1s zwangsweise sauber zurückgesetzt statt die
+    // Seite dauerhaft in einer verschobenen Zwischenposition hängen zu
+    // lassen.
+    clearTimeout(dragWatchdog);
+    dragWatchdog = setTimeout(abortDrag, 1000);
   });
 
   el.addEventListener("pointermove", (e) => {
@@ -734,10 +766,14 @@ function bindEdgeZone(el, side) {
     const dx = e.clientX - drag.startX;
     const dy = e.clientY - drag.startY;
     if (drag.deciding) {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      // Etwas höherer Schwellwert als beim Original (8→12px) - ein
+      // normaler Fingertipp hat immer minimale Bewegung, das soll nicht
+      // versehentlich als Wisch-Geste über der Suchleiste/dem Verlauf
+      // hängen bleiben, wenn die Randzone zufällig mit angetippt wird.
+      if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return;
       drag.horizontal = Math.abs(dx) > Math.abs(dy) * 2;
       drag.deciding = false;
-      if (!drag.horizontal) { drag = null; return; }
+      if (!drag.horizontal) { drag = null; clearTimeout(dragWatchdog); return; }
     }
     const expectSign = drag.mode === "home" || drag.mode === "back" ? 1 : -1;
     if ((expectSign > 0 && dx <= 0) || (expectSign < 0 && dx >= 0)) {
@@ -759,6 +795,7 @@ function bindEdgeZone(el, side) {
     if (!drag || drag.pointerId !== e.pointerId) return;
     const { mode, curPx, velocity } = drag;
     drag = null;
+    clearTimeout(dragWatchdog);
     const predicted = curPx + velocity * 120;
     switch (mode) {
       case "open-search":
@@ -775,8 +812,14 @@ function bindEdgeZone(el, side) {
         break;
     }
   };
+  // pointerup = Geste bewusst beendet → ggf. committen.
   el.addEventListener("pointerup", end);
-  el.addEventListener("pointercancel", end);
+  // cancel/lostpointercapture = Geste wurde UNTERBROCHEN (Systemgeste,
+  // Tastatur, Tab-Wechsel …) → NIE committen, nur sauber zurücksetzen.
+  el.addEventListener("pointercancel", abortDrag);
+  el.addEventListener("lostpointercapture", (e) => {
+    if (drag && drag.pointerId === e.pointerId) abortDrag();
+  });
 }
 
 function applyDragVisual(mode, px) {
@@ -820,6 +863,18 @@ function init() {
     }
     renderHomeHistory();
   });
+
+  // Weiteres Sicherheitsnetz: beim Zurückkehren zur App (Tab-/App-Wechsel,
+  // Bildschirm gesperrt & wieder entsperrt …) Position + Gesten-Status
+  // hart korrigieren, statt eine evtl. veraltete/verschobene Ansicht zu
+  // riskieren.
+  const healOnReturn = () => {
+    if (document.hidden) return;
+    abortDrag();
+    setPageOffsets(0);
+  };
+  document.addEventListener("visibilitychange", healOnReturn);
+  window.addEventListener("pageshow", healOnReturn);
 
   if (state.autoFocus) {
     setTimeout(() => openSearch(), 500);

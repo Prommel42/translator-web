@@ -117,8 +117,21 @@ button, input {
   -webkit-appearance: none;
   appearance: none;
 }
-button { cursor: pointer; touch-action: manipulation; }
+button {
+  cursor: pointer;
+  touch-action: manipulation;
+  /* Kurzes Tastendruck-Feedback für ALLE Buttons in der App - ersetzt das
+     haptische Feedback des Originals durch etwas Sichtbares/Fühlbares. */
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s ease;
+}
+button:active:not(:disabled) { transform: scale(0.95); opacity: 0.75; }
 a { color: inherit; text-decoration: none; }
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeInUp 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
 
 .hidden { display: none !important; }
 
@@ -165,7 +178,7 @@ a { color: inherit; text-decoration: none; }
   transform: translate3d(var(--tx, 0), 0, 0);
 }
 .page.dragging { transition: none; }
-.page.animated { transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1); }
+.page.animated { transition: transform 0.34s cubic-bezier(0.34, 1.12, 0.64, 1); }
 
 #home-page { z-index: 1; }
 #search-page { z-index: 2; }
@@ -302,6 +315,9 @@ a { color: inherit; text-decoration: none; }
   font-size: 16px;
   color: var(--text-primary);
   caret-color: var(--accent);
+  /* Kein Browser-Standard-Fokusring (blaues Rechteck) - das SwiftUI-
+     Original zeigt beim Fokussieren kein Rahmen, nur den Cursor. */
+  outline: none;
 }
 .search-input::placeholder { color: var(--text-secondary); }
 .clear-btn {
@@ -389,7 +405,7 @@ a { color: inherit; text-decoration: none; }
   -webkit-overflow-scrolling: touch;
   transform: translate3d(var(--slot-x, 0), 0, 0);
 }
-.carousel-slot.animated { transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1); }
+.carousel-slot.animated { transition: transform 0.3s cubic-bezier(0.34, 1.12, 0.64, 1); }
 .carousel-slot.adjacent { pointer-events: none; }
 
 .scroll-area { height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; }
@@ -632,7 +648,9 @@ a { color: inherit; text-decoration: none; }
   border-radius: 8px;
   padding: 10px 12px;
   font-size: 15px;
+  outline: none;
 }
+.text-input:focus { box-shadow: 0 0 0 1.5px var(--accent); }
 .text-input::placeholder { color: var(--text-secondary); }
 
 .segmented {

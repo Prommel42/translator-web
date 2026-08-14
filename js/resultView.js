@@ -97,7 +97,7 @@ function makeWordCell(rawText, lang, coordinator, onWordTap) {
 
 function buildEmptyView(query) {
   const wrap = document.createElement("div");
-  wrap.className = "empty-view";
+  wrap.className = "empty-view fade-in";
   wrap.innerHTML = `
     <span class="icon">${ICONS.textMagnifyingglass}</span>
     <p>Kein Ergebnis für „${escapeHTML(query)}“</p>`;
@@ -130,7 +130,7 @@ export function renderResults(container, results, query, sourceLang, targetLang,
 
   const coordinator = createCopyCoordinator();
   const list = document.createElement("div");
-  list.className = "result-list";
+  list.className = "result-list fade-in";
 
   roms.forEach((rom, i) => {
     if (i > 0) {
@@ -206,14 +206,14 @@ export function renderResults(container, results, query, sourceLang, targetLang,
 
 export function buildSpinner() {
   const wrap = document.createElement("div");
-  wrap.className = "spinner-view";
+  wrap.className = "spinner-view fade-in";
   wrap.innerHTML = `<div class="spinner-ring"><span class="icon">${ICONS.search}</span></div>`;
   return wrap;
 }
 
 export function buildErrorView(message, onRetry) {
   const wrap = document.createElement("div");
-  wrap.className = "error-view";
+  wrap.className = "error-view fade-in";
   wrap.innerHTML = `<span class="icon">${ICONS.wifiExclamation}</span><p>${escapeHTML(message)}</p>`;
   const btn = document.createElement("button");
   btn.className = "retry-btn";
