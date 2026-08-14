@@ -1,15 +1,18 @@
 # Übersetzer – Web-App
 
-Statischer, framework-freier Klon der iOS-App (reines HTML/CSS/JS, keine Build-Schritte, keine
-Abhängigkeiten). Läuft komplett im Browser und spricht die PONS Dictionary API direkt per
-`fetch()` an (CORS ist auf `api.pons.com` offen, ein Server/Proxy ist nicht nötig).
+Statischer, framework-freier Klon der [iOS-App](https://github.com/Prommel42/Translator) (reines
+HTML/CSS/JS, keine Build-Schritte, keine Abhängigkeiten). Läuft komplett im Browser und spricht
+die PONS Dictionary API direkt per `fetch()` an (CORS ist auf `api.pons.com` offen, ein
+Server/Proxy ist nicht nötig).
+
+Dieses Repo enthält nur die Web-App und wird aus dem `web/`-Ordner des privaten Haupt-Repos
+gespeist. Der iOS/Swift-Quellcode bleibt dort privat.
 
 ## Lokal testen
 
 Da die App ES-Module lädt, muss sie über `http://` statt `file://` geöffnet werden:
 
 ```bash
-cd web
 python3 -m http.server 8080
 ```
 
@@ -17,14 +20,12 @@ Danach `http://localhost:8080` im Browser öffnen.
 
 ## Deployment auf GitHub Pages
 
-Der Workflow [`../.github/workflows/deploy-pages.yml`](../.github/workflows/deploy-pages.yml)
-deployt den Inhalt von `web/` automatisch bei jedem Push auf `main`. Einmalig in den
-Repo-Einstellungen aktivieren:
+Kostenlos, da dieses Repo öffentlich ist. Einmalig aktivieren:
 
-**Settings → Pages → Source → „GitHub Actions"**
+**Settings → Pages → Source → „Deploy from a branch" → Branch `main` / `(root)` → Save**
 
-Danach läuft jeder Push auf `main`, der `web/` verändert, automatisch durch und veröffentlicht
-die Seite unter `https://<username>.github.io/<repo>/`.
+Danach ist die App unter `https://prommel42.github.io/translator-web/` erreichbar. Jeder Push
+auf `main` aktualisiert die Seite automatisch (kein GitHub Actions nötig).
 
 ## Datenhaltung
 
