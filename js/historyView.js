@@ -67,7 +67,7 @@ function makeHistoryRow(item, onSelect, onDelete) {
     startX = e.clientX;
     startY = e.clientY;
     startOffset = offset;
-    content.setPointerCapture(e.pointerId);
+    try { content.setPointerCapture(e.pointerId); } catch { /* ignore */ }
   });
 
   content.addEventListener("pointermove", (e) => {

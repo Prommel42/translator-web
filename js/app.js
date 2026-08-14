@@ -24,8 +24,6 @@ const clearBtnEl = document.getElementById("clear-btn");
 const cancelBtnEl = document.getElementById("cancel-btn");
 const navIndicatorEl = document.getElementById("nav-indicator");
 const searchContentEl = document.getElementById("search-content");
-const edgeLeftEl = document.getElementById("edge-left");
-const edgeRightEl = document.getElementById("edge-right");
 
 const settingsModalEl = document.getElementById("settings-modal");
 const settingsDoneEl = document.getElementById("settings-done");
@@ -365,7 +363,8 @@ searchInputEl.addEventListener("focus", () => {
     abortDrag();
     homePageEl.classList.remove("animated");
     searchPageEl.classList.remove("animated");
-    setPageOffsets(0);
+    setPageDrag(0);
+    setPageBase();
   }
 });
 
@@ -499,7 +498,6 @@ async function doTranslate(text, pushToStack) {
     }
     state.isLoading = false;
     renderSearchPageContent();
-    updateGestureZones();
   } catch (err) {
     if (err.name === "AbortError") return;
     const elapsed = Date.now() - startTime;
@@ -517,7 +515,6 @@ function commitResult(query, result) {
   state.navHistory = state.navHistory.slice(0, state.navIndex + 1);
   state.navHistory.push(entry);
   state.navIndex = state.navHistory.length - 1;
-  updateGestureZones();
 }
 
 // ── Such-Seiteninhalt (Nav-Indicator + Carousel/Verlauf) ─────────
@@ -577,7 +574,7 @@ function renderSearchPageContent() {
     if (canGoBack()) {
       const prev = document.createElement("div");
       prev.className = "carousel-slot adjacent";
-      prev.style.transform = "translateX(-100%)";
+      prev.style.setProperty("--slot-base", "-1");
       prev.appendChild(buildSlotContent("result", state.navHistory[state.navIndex - 1]));
       carousel.appendChild(prev);
     }
@@ -585,6 +582,7 @@ function renderSearchPageContent() {
     const current = document.createElement("div");
     current.className = "carousel-slot";
     current.id = "carousel-current";
+    current.style.setProperty("--slot-base", "0");
     if (state.isLoading) current.appendChild(buildSlotContent("loading"));
     else if (state.result) current.appendChild(buildSlotContent("result", { query: state.query, result: state.result }));
     else if (state.errorMsg) current.appendChild(buildSlotContent("error"));
@@ -593,7 +591,7 @@ function renderSearchPageContent() {
     if (canGoForward()) {
       const next = document.createElement("div");
       next.className = "carousel-slot adjacent";
-      next.style.transform = "translateX(100%)";
+      next.style.setProperty("--slot-base", "1");
       next.appendChild(buildSlotContent("result", state.navHistory[state.navIndex + 1]));
       carousel.appendChild(next);
     }
@@ -604,16 +602,27 @@ function renderSearchPageContent() {
   }
 }
 
-// ── Seitenübergänge (Home ↔ Suche) ───────────────────────────────
+// ── Seitenübergänge (Home ↔ Suche) — komplett neu, prozentbasiert ──────
+//
+// Statt die Zielposition in Pixeln auszurechnen (appEl.clientWidth *
+// irgendwas), was bei Zoom/Tastatur/Browser-Eigenheiten leicht falsch
+// werden kann, nutzen wir CSS-Prozent-Transforms: --base ist -1/0/1 (=
+// "eine Seitenbreite links/mittig/rechts von daheim"), das rechnet der
+// Browser selbst anhand der TATSÄCHLICHEN aktuellen Breite aus - dafür
+// gibt es prinzipiell keinen falschen Wert. --drag ist nur der Live-
+// Fingerversatz in Pixeln während einer aktiven Geste und wird bei jedem
+// Loslassen garantiert auf 0 zurückgesetzt (siehe .page-Regel in style.css).
 
-function setPageOffsets(dragPx = 0) {
-  const pw = pageWidthPx();
-  const homeX = (state.isSearching ? -pw : 0) + dragPx;
-  const searchX = (state.isSearching ? 0 : pw) + dragPx;
-  homePageEl.style.transform = `translate3d(${homeX}px,0,0)`;
-  searchPageEl.style.transform = `translate3d(${searchX}px,0,0)`;
+function setPageBase() {
+  homePageEl.style.setProperty("--base", state.isSearching ? "-1" : "0");
+  searchPageEl.style.setProperty("--base", state.isSearching ? "0" : "1");
   homePageEl.style.pointerEvents = state.isSearching ? "none" : "auto";
   searchPageEl.style.pointerEvents = state.isSearching ? "auto" : "none";
+}
+
+function setPageDrag(px) {
+  homePageEl.style.setProperty("--drag", `${px}px`);
+  searchPageEl.style.setProperty("--drag", `${px}px`);
 }
 
 function withPageAnimation(fn) {
@@ -629,9 +638,9 @@ function withPageAnimation(fn) {
 function openSearch() {
   withPageAnimation(() => {
     state.isSearching = true;
-    setPageOffsets(0);
+    setPageDrag(0);
+    setPageBase();
     renderSearchPageContent();
-    updateGestureZones();
   });
   // Fokus MUSS synchron im User-Gesture-Handler passieren, sonst blockiert
   // mobile Safari/Chrome das automatische Einblenden der Bildschirmtastatur
@@ -653,14 +662,14 @@ function performGoHome() {
   updateSearchInputUI();
   updateHomeFakeBarText();
   renderSearchPageContent();
-  updateGestureZones();
 }
 
 function goHome() {
   if (navigator.vibrate) navigator.vibrate(10);
   withPageAnimation(() => {
     performGoHome();
-    setPageOffsets(0);
+    setPageDrag(0);
+    setPageBase();
   });
 }
 
@@ -672,35 +681,48 @@ function cancel() {
   withPageAnimation(() => {
     performGoHome();
     state.navHistory = [];
-    setPageOffsets(0);
-    updateGestureZones();
+    setPageDrag(0);
+    setPageBase();
   });
 }
 
 function resetPagesVisual() {
-  withPageAnimation(() => setPageOffsets(0));
+  withPageAnimation(() => setPageDrag(0));
 }
 
 // ── Nav-Stack-Swipe (zwischen Suchergebnis-Seiten) ───────────────
+//
+// Gleiches Prinzip: nur --slot-base (je Slot um ±1 verschoben) + ein
+// gemeinsames --drag auf dem Carousel-Wrapper (vererbt sich auf die
+// Kind-Slots). Die Inhalte selbst bleiben während der Animation
+// unverändert stehen (der Nachbar-Slot zeigt ja schon die richtigen
+// Daten) - erst NACH der Animation wird der State synchronisiert und
+// neu gerendert.
+
+function setCarouselDrag(px, animated) {
+  const carouselEl = document.getElementById("carousel");
+  if (!carouselEl) return;
+  carouselEl.classList.toggle("animated", animated);
+  carouselEl.style.setProperty("--drag", `${px}px`);
+}
 
 function swipeNavigateCommit(direction) {
   abortSearch();
   state.isLoading = false;
   const newIndex = direction > 0 ? state.navIndex - 1 : state.navIndex + 1;
-  const carouselEl = document.getElementById("carousel");
   if (newIndex < 0 || newIndex >= state.navHistory.length) {
-    if (carouselEl) {
-      carouselEl.classList.add("animated");
-      carouselEl.style.transform = "translate3d(0,0,0)";
-    }
+    setCarouselDrag(0, true);
     return;
   }
   if (navigator.vibrate) navigator.vibrate(10);
-  const pw = pageWidthPx();
-  const target = direction > 0 ? pw : -pw;
+  const carouselEl = document.getElementById("carousel");
   if (carouselEl) {
     carouselEl.classList.add("animated");
-    carouselEl.style.transform = `translate3d(${target}px,0,0)`;
+    carouselEl.style.setProperty("--drag", "0px");
+    carouselEl.querySelectorAll(".carousel-slot").forEach((slot) => {
+      const base = parseFloat(slot.style.getPropertyValue("--slot-base") || "0");
+      slot.style.setProperty("--slot-base", String(base + direction));
+    });
   }
   setTimeout(() => {
     state.restoringHistory = true;
@@ -714,29 +736,36 @@ function swipeNavigateCommit(direction) {
     state.errorMsg = null;
     state.isLoading = false;
     renderSearchPageContent();
-    updateGestureZones();
     setTimeout(() => { state.restoringHistory = false; }, 100);
-  }, 240);
+  }, 300);
 }
 
 function resetCarouselVisual() {
-  const carouselEl = document.getElementById("carousel");
-  if (carouselEl) {
-    carouselEl.classList.add("animated");
-    carouselEl.style.transform = "translate3d(0,0,0)";
-  }
+  setCarouselDrag(0, true);
 }
 
-// ── Gesten-Zonen (Edge-Swipe, Port von makeEdgeGesture/makeHomeGesture) ──
+// ── Wisch-Gesten (Edge-Swipe) ─────────────────────────────────────────
+//
+// Komplett neu: KEINE eigenen, übereinanderliegenden Trefferflächen-Divs
+// mehr am Bildschirmrand (die lagen bisher MIT z-index über der
+// Suchleiste/dem Verlauf und konnten normale Taps abfangen). Stattdessen
+// hört ein einziger Listener auf #app zu (normale Bubbling-Phase - blockt
+// dadurch nie Klicks auf Buttons/Inputs darunter) und schaut bei jedem
+// pointerdown nur anhand der Position nach, ob in der Nähe eines Randes
+// getippt wurde. Erst wenn sich daraus tatsächlich eine horizontale
+// Wisch-Bewegung entwickelt, wird überhaupt etwas an der Optik verändert.
 
-function updateGestureZones() {
-  if (!state.isSearching) {
-    edgeLeftEl.classList.add("hidden");
-    edgeRightEl.classList.remove("hidden");
-  } else {
-    edgeLeftEl.classList.toggle("hidden", !(canGoHome() || canGoBack()));
-    edgeRightEl.classList.toggle("hidden", !canGoForward());
-  }
+const EDGE_PX = 30;
+const EDGE_TOP_OFFSET = 170;
+
+function edgeSideAt(clientX, clientY) {
+  const rect = appEl.getBoundingClientRect();
+  const localX = clientX - rect.left;
+  const localY = clientY - rect.top;
+  if (localY < EDGE_TOP_OFFSET) return null;
+  if (localX <= EDGE_PX) return "left";
+  if (localX >= rect.width - EDGE_PX) return "right";
+  return null;
 }
 
 function determineMode(side) {
@@ -762,101 +791,92 @@ function abortDrag() {
   else resetCarouselVisual();
 }
 
-function bindEdgeZone(el, side) {
-  el.addEventListener("pointerdown", (e) => {
-    const mode = determineMode(side);
-    if (!mode) return;
-    drag = {
-      side, mode, pointerId: e.pointerId,
-      startX: e.clientX, startY: e.clientY,
-      deciding: true, horizontal: false, curPx: 0,
-      lastX: e.clientX, lastT: performance.now(), velocity: 0,
-    };
-    try { el.setPointerCapture(e.pointerId); } catch { /* ignore */ }
-    // Sicherheitsnetz: kommt aus irgendeinem Grund nie ein up/cancel/
-    // lostpointercapture (z. B. weil das Keyboard-UI das Event schluckt),
-    // wird die Geste nach 1s zwangsweise sauber zurückgesetzt statt die
-    // Seite dauerhaft in einer verschobenen Zwischenposition hängen zu
-    // lassen.
-    clearTimeout(dragWatchdog);
-    dragWatchdog = setTimeout(abortDrag, 1000);
-  });
-
-  el.addEventListener("pointermove", (e) => {
-    if (!drag || drag.pointerId !== e.pointerId) return;
-    const dx = e.clientX - drag.startX;
-    const dy = e.clientY - drag.startY;
-    if (drag.deciding) {
-      // Etwas höherer Schwellwert als beim Original (8→12px) - ein
-      // normaler Fingertipp hat immer minimale Bewegung, das soll nicht
-      // versehentlich als Wisch-Geste über der Suchleiste/dem Verlauf
-      // hängen bleiben, wenn die Randzone zufällig mit angetippt wird.
-      if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return;
-      drag.horizontal = Math.abs(dx) > Math.abs(dy) * 2;
-      drag.deciding = false;
-      if (!drag.horizontal) { drag = null; clearTimeout(dragWatchdog); return; }
-    }
-    const expectSign = drag.mode === "home" || drag.mode === "back" ? 1 : -1;
-    if ((expectSign > 0 && dx <= 0) || (expectSign < 0 && dx >= 0)) {
-      drag.curPx = 0;
-      applyDragVisual(drag.mode, 0);
-      return;
-    }
-    e.preventDefault();
-    const now = performance.now();
-    const dt = now - drag.lastT;
-    if (dt > 0) drag.velocity = (e.clientX - drag.lastX) / dt;
-    drag.lastX = e.clientX;
-    drag.lastT = now;
-    drag.curPx = dx;
-    applyDragVisual(drag.mode, dx);
-  });
-
-  const end = (e) => {
-    if (!drag || drag.pointerId !== e.pointerId) return;
-    const { mode, curPx, velocity } = drag;
-    drag = null;
-    clearTimeout(dragWatchdog);
-    const predicted = curPx + velocity * 120;
-    switch (mode) {
-      case "open-search":
-        if (curPx < -60 || predicted < -150) openSearch(); else resetPagesVisual();
-        break;
-      case "home":
-        if (curPx > 60 || predicted > 150) goHome(); else resetPagesVisual();
-        break;
-      case "back":
-        if (curPx > 60 || predicted > 150) swipeNavigateCommit(1); else resetCarouselVisual();
-        break;
-      case "forward":
-        if (curPx < -60 || predicted < -150) swipeNavigateCommit(-1); else resetCarouselVisual();
-        break;
-    }
+appEl.addEventListener("pointerdown", (e) => {
+  if (drag) return;
+  const side = edgeSideAt(e.clientX, e.clientY);
+  if (!side) return;
+  const mode = determineMode(side);
+  if (!mode) return;
+  drag = {
+    side, mode, pointerId: e.pointerId,
+    startX: e.clientX, startY: e.clientY,
+    deciding: true, horizontal: false, curPx: 0,
+    lastX: e.clientX, lastT: performance.now(), velocity: 0,
   };
-  // pointerup = Geste bewusst beendet → ggf. committen.
-  el.addEventListener("pointerup", end);
-  // cancel/lostpointercapture = Geste wurde UNTERBROCHEN (Systemgeste,
-  // Tastatur, Tab-Wechsel …) → NIE committen, nur sauber zurücksetzen.
-  el.addEventListener("pointercancel", abortDrag);
-  el.addEventListener("lostpointercapture", (e) => {
-    if (drag && drag.pointerId === e.pointerId) abortDrag();
-  });
+  // Bewusst KEIN setPointerCapture/preventDefault hier - ein normaler Tap
+  // auf einen Button/ein Feld in der Nähe des Randes funktioniert dadurch
+  // ganz normal weiter. Erst wenn sich das unten als echte horizontale
+  // Wisch-Geste bestätigt, greifen wir ein.
+  clearTimeout(dragWatchdog);
+  dragWatchdog = setTimeout(abortDrag, 1000);
+});
+
+appEl.addEventListener("pointermove", (e) => {
+  if (!drag || drag.pointerId !== e.pointerId) return;
+  const dx = e.clientX - drag.startX;
+  const dy = e.clientY - drag.startY;
+  if (drag.deciding) {
+    if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return;
+    drag.horizontal = Math.abs(dx) > Math.abs(dy) * 2;
+    drag.deciding = false;
+    if (!drag.horizontal) { drag = null; clearTimeout(dragWatchdog); return; }
+    // Erst jetzt, wo es wirklich eine Wisch-Geste ist, Pointer einfangen -
+    // damit bleiben wir auch dann informiert, wenn der Finger #app verlässt.
+    try { appEl.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+  }
+  const expectSign = drag.mode === "home" || drag.mode === "back" ? 1 : -1;
+  if ((expectSign > 0 && dx <= 0) || (expectSign < 0 && dx >= 0)) {
+    drag.curPx = 0;
+    applyDragVisual(drag.mode, 0);
+    return;
+  }
+  e.preventDefault();
+  const now = performance.now();
+  const dt = now - drag.lastT;
+  if (dt > 0) drag.velocity = (e.clientX - drag.lastX) / dt;
+  drag.lastX = e.clientX;
+  drag.lastT = now;
+  drag.curPx = dx;
+  applyDragVisual(drag.mode, dx);
+});
+
+function endDrag(e) {
+  if (!drag || drag.pointerId !== e.pointerId) return;
+  const { mode, curPx, velocity } = drag;
+  drag = null;
+  clearTimeout(dragWatchdog);
+  const predicted = curPx + velocity * 120;
+  switch (mode) {
+    case "open-search":
+      if (curPx < -60 || predicted < -150) openSearch(); else resetPagesVisual();
+      break;
+    case "home":
+      if (curPx > 60 || predicted > 150) goHome(); else resetPagesVisual();
+      break;
+    case "back":
+      if (curPx > 60 || predicted > 150) swipeNavigateCommit(1); else resetCarouselVisual();
+      break;
+    case "forward":
+      if (curPx < -60 || predicted < -150) swipeNavigateCommit(-1); else resetCarouselVisual();
+      break;
+  }
 }
+// pointerup = Geste bewusst beendet → ggf. committen.
+appEl.addEventListener("pointerup", endDrag);
+// cancel/lostpointercapture = Geste wurde UNTERBROCHEN (Systemgeste,
+// Tastatur, Tab-Wechsel …) → NIE committen, nur sauber zurücksetzen.
+appEl.addEventListener("pointercancel", abortDrag);
+appEl.addEventListener("lostpointercapture", (e) => {
+  if (drag && drag.pointerId === e.pointerId) abortDrag();
+});
 
 function applyDragVisual(mode, px) {
   if (mode === "home" || mode === "open-search") {
-    setPageOffsets(px);
+    setPageDrag(px);
   } else {
-    const carouselEl = document.getElementById("carousel");
-    if (carouselEl) {
-      carouselEl.classList.remove("animated");
-      carouselEl.style.transform = `translate3d(${px}px,0,0)`;
-    }
+    setCarouselDrag(px, false);
   }
 }
-
-bindEdgeZone(edgeLeftEl, "left");
-bindEdgeZone(edgeRightEl, "right");
 
 // ── Init ────────────────────────────────────────────────────────
 
@@ -868,20 +888,16 @@ function init() {
   updateSearchInputUI();
   renderHomeHistory();
   renderSearchPageContent();
-  setPageOffsets(0);
-  updateGestureZones();
+  setPageDrag(0);
+  setPageBase();
 
-  // Nur bei echter Breitenänderung (Rotation/Fenstergröße) neu positionieren.
-  // Das Öffnen der Bildschirmtastatur löst auf vielen Mobilbrowsern ebenfalls
-  // ein resize-Event aus (Höhe ändert sich) - das darf die horizontale
-  // Seiten-Position nicht anfassen, sonst verrutscht das Layout.
+  // Nur bei echter Breitenänderung (Rotation/Fenstergröße) neu positionieren
+  // (rein informativ inzwischen - die Prozent-Transforms passen sich von
+  // selbst an, das hier sorgt nur noch für ein neu berechnetes Verlaufs-Layout).
   let lastWidth = pageWidthPx();
   window.addEventListener("resize", () => {
     const w = pageWidthPx();
-    if (w !== lastWidth) {
-      lastWidth = w;
-      setPageOffsets(0);
-    }
+    if (w !== lastWidth) lastWidth = w;
     renderHomeHistory();
   });
 
@@ -893,14 +909,12 @@ function init() {
   }
 
   // Weiteres Sicherheitsnetz: beim Zurückkehren zur App (Tab-/App-Wechsel,
-  // Bildschirm gesperrt & wieder entsperrt …) Position + Gesten-Status
-  // hart korrigieren, statt eine evtl. veraltete/verschobene Ansicht zu
-  // riskieren.
+  // Bildschirm gesperrt & wieder entsperrt …) Gesten-Status hart
+  // korrigieren, statt eine evtl. hängende Geste zu riskieren.
   const healOnReturn = () => {
     if (document.hidden) return;
     abortDrag();
     forceResetZoomIfNeeded();
-    setPageOffsets(0);
   };
   document.addEventListener("visibilitychange", healOnReturn);
   window.addEventListener("pageshow", healOnReturn);
