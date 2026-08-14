@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>Übersetzer</title>
+<meta name="description" content="Wörterbuch-Übersetzer auf Basis der PONS Dictionary API">
+<meta name="theme-color" content="#4f8ef7">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-32.png" sizes="32x32">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Übersetzer">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ══════════════════ Seite 1: Homescreen ══════════════════ -->
+  <section id="home-page" class="page">
+    <div class="top-spacer"></div>
+
+    <div class="app-logo">
+      <div class="logo-badge"></div>
+      <h1 class="logo-title">Übersetzer</h1>
+    </div>
+
+    <div class="flex-spacer"></div>
+
+    <button id="no-key-banner" class="no-key-banner hidden" type="button">
+      <span class="icon-wrap orange"></span>
+      <span class="banner-text">
+        <span class="banner-title">Kein API-Key eingerichtet</span>
+        <span class="banner-sub">Tippe hier, um den PONS-Key in den Einstellungen einzutragen.</span>
+      </span>
+      <span class="chevron-wrap"></span>
+    </button>
+
+    <div class="lang-search-block">
+      <div id="home-lang-selector" class="lang-selector"></div>
+      <button id="home-fake-searchbar" class="fake-searchbar" type="button">
+        <span class="search-icon-wrap"></span>
+        <span id="home-fake-searchbar-text" class="fake-searchbar-text placeholder">Wort oder Ausdruck…</span>
+      </button>
+    </div>
+
+    <div id="home-history-wrap" class="home-history-wrap"></div>
+
+    <div class="bottom-spacer"></div>
+
+    <button id="settings-btn" class="settings-btn" type="button" aria-label="Einstellungen"></button>
+  </section>
+
+  <!-- ══════════════════ Seite 2: Suchseite ══════════════════ -->
+  <section id="search-page" class="page">
+    <div class="top-spacer"></div>
+
+    <div class="search-area">
+      <div id="search-lang-selector" class="lang-selector"></div>
+      <div class="search-bar-row">
+        <div class="searchbar">
+          <span class="search-icon-wrap"></span>
+          <input id="search-input" class="search-input" type="text" placeholder="Wort oder Ausdruck…"
+                 autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+          <button id="clear-btn" class="clear-btn hidden" type="button" aria-label="Löschen"></button>
+        </div>
+        <button id="cancel-btn" class="cancel-btn hidden" type="button">Abbrechen</button>
+      </div>
+    </div>
+
+    <div id="nav-indicator" class="nav-indicator hidden"></div>
+    <div class="divider"></div>
+
+    <div id="search-content" class="search-content"></div>
+  </section>
+
+  <!-- ══════════════════ Gesten-Zonen (Edge-Swipe) ══════════════════ -->
+  <div id="edge-left" class="edge-zone edge-left hidden"></div>
+  <div id="edge-right" class="edge-zone edge-right hidden"></div>
+</div>
+
+<!-- ══════════════════ Settings-Modal ══════════════════ -->
+<div id="settings-modal" class="modal-overlay hidden">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span class="modal-title">Einstellungen</span>
+      <button id="settings-done" class="modal-done" type="button">Fertig</button>
+    </div>
+    <div class="modal-body">
+
+      <div class="form-section">
+        <div class="form-section-title">Darstellung</div>
+        <div class="form-card">
+          <div class="form-row-label">Erscheinungsbild</div>
+          <div id="scheme-segmented" class="segmented">
+            <button class="segment" data-value="system" type="button">System</button>
+            <button class="segment" data-value="light" type="button">Hell</button>
+            <button class="segment" data-value="dark" type="button">Dunkel</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">Suche</div>
+        <div class="form-card">
+          <label class="form-row toggle-row">
+            <span>Tastatur beim Start einblenden</span>
+            <span class="switch"><input id="autofocus-toggle" type="checkbox"><span class="switch-track"></span></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">API</div>
+        <div class="form-card">
+          <div class="form-row-label">PONS API-Key</div>
+          <input id="api-key-input" class="text-input" type="password" placeholder="Key hier einfügen…"
+                 autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        </div>
+        <a class="form-card link-row" href="https://en.pons.com/open_dict/public_api" target="_blank" rel="noopener">
+          <span class="icon-wrap"></span><span>API-Key erhalten</span>
+        </a>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">Info</div>
+        <div class="form-card">
+          <div class="form-row"><span>Version</span><span class="value-muted">1.0.0 (Web)</span></div>
+          <div class="form-row"><span>API</span><span class="value-muted">PONS Dictionary</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ Sprachauswahl-Sheet ══════════════════ -->
+<div id="lang-picker-modal" class="modal-overlay hidden">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span id="lang-picker-title" class="modal-title">Sprache</span>
+      <button id="lang-picker-done" class="modal-done" type="button">Fertig</button>
+    </div>
+    <div id="lang-picker-list" class="modal-body lang-list"></div>
+  </div>
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
