@@ -85,6 +85,25 @@ const history = new SearchHistoryStore();
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const pageWidthPx = () => appEl.clientWidth;
+
+// Verhindert Pinch-Zoom-Gesten, die touch-action:manipulation (noch) nicht
+// abdeckt (Safari-eigene gesturestart/-change-Events).
+document.addEventListener("gesturestart", (e) => e.preventDefault());
+document.addEventListener("gesturechange", (e) => e.preventDefault());
+
+// Erzwingt einen Zoom-Reset, falls der Browser trotz touch-action:manipulation
+// / user-scalable=no irgendwie doch hineingezoomt ist (z. B. iOS ignoriert
+// diese Vorgaben teils aus Accessibility-Gründen). Bekannter Trick: das
+// viewport-Meta-Tag kurz verändern und zurücksetzen zwingt den Browser, den
+// Zoom neu zu berechnen.
+const viewportMetaEl = document.querySelector('meta[name="viewport"]');
+function forceResetZoomIfNeeded() {
+  if (!viewportMetaEl) return;
+  if (!window.visualViewport || window.visualViewport.scale <= 1.02) return;
+  const original = viewportMetaEl.getAttribute("content");
+  viewportMetaEl.setAttribute("content", original + ", maximum-scale=1");
+  requestAnimationFrame(() => viewportMetaEl.setAttribute("content", original));
+}
 const canGoBack = () => state.navIndex > 0;
 const canGoForward = () => state.navIndex < state.navHistory.length - 1;
 const canGoHome = () => state.isSearching && state.navIndex <= 0;
@@ -334,13 +353,15 @@ searchInputEl.addEventListener("keydown", (e) => {
 });
 
 searchInputEl.addEventListener("focus", () => {
+  forceResetZoomIfNeeded();
   if (!state.isSearching) {
     openSearch();
   } else {
-    // Selbstheilung: Egal ob eine hängengebliebene Wisch-Geste oder ein
-    // Browser-Eigenheit-Resize die Seite vorher verschoben hat - sobald
-    // tatsächlich getippt wird, erzwingen wir die garantiert korrekte
-    // Position. Auch eine evtl. hängende Geste wird hart abgebrochen.
+    // Selbstheilung: Egal ob eine hängengebliebene Wisch-Geste, ein
+    // Browser-Eigenheit-Resize oder Zoom die Seite vorher verschoben hat -
+    // sobald tatsächlich getippt wird, erzwingen wir die garantiert
+    // korrekte Position. Auch eine evtl. hängende Geste wird hart
+    // abgebrochen.
     abortDrag();
     homePageEl.classList.remove("animated");
     searchPageEl.classList.remove("animated");
@@ -864,6 +885,13 @@ function init() {
     renderHomeHistory();
   });
 
+  // visualViewport meldet Zoom-Änderungen zuverlässiger als window.resize
+  // (v. a. auf iOS). Sobald reingezoomt wurde, sofort zurücksetzen statt
+  // erst beim nächsten Fokus/Tab-Wechsel zu reagieren.
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", forceResetZoomIfNeeded);
+  }
+
   // Weiteres Sicherheitsnetz: beim Zurückkehren zur App (Tab-/App-Wechsel,
   // Bildschirm gesperrt & wieder entsperrt …) Position + Gesten-Status
   // hart korrigieren, statt eine evtl. veraltete/verschobene Ansicht zu
@@ -871,6 +899,7 @@ function init() {
   const healOnReturn = () => {
     if (document.hidden) return;
     abortDrag();
+    forceResetZoomIfNeeded();
     setPageOffsets(0);
   };
   document.addEventListener("visibilitychange", healOnReturn);
