@@ -1,6 +1,13 @@
 // translationService.js — Port von TranslationService.swift (PONS Dictionary API)
+//
+// Läuft NICHT direkt gegen api.pons.com: PONS beantwortet die CORS-Preflight-
+// Anfrage, die Browser wegen des benutzerdefinierten "X-Secret"-Headers
+// automatisch schicken, nicht korrekt — der Browser blockiert die Anfrage
+// deshalb komplett. Stattdessen läuft die Anfrage über einen kleinen
+// Cloudflare-Worker-Proxy (siehe /proxy/worker.js), der serverseitig (also
+// ohne CORS-Beschränkung) mit PONS spricht.
 
-const BASE = "https://api.pons.com/v1/dictionary";
+const PROXY_URL = "https://translator-pons-proxy.lima-hotel-cloudflare.workers.dev";
 
 const PAIR_CODES = {
   "de-en": "deen", "en-de": "deen",
@@ -48,16 +55,12 @@ export async function lookup(query, from, to, apiKey, { signal } = {}) {
     throw new TranslationError("invalidURL");
   }
 
-  const url = new URL(BASE);
-  url.searchParams.set("q", query);
-  url.searchParams.set("l", pair);
-  url.searchParams.set("in", from);
-  url.searchParams.set("language", "de");
-
   let response;
   try {
-    response = await fetch(url.toString(), {
-      headers: { "X-Secret": apiKey },
+    response = await fetch(PROXY_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ q: query, l: pair, in: from, language: "de", secret: apiKey }),
       signal,
     });
   } catch (err) {
@@ -76,7 +79,7 @@ export async function lookup(query, from, to, apiKey, { signal } = {}) {
 
   try {
     return await response.json();
-  } catch (err) {
+  } catch {
     throw new TranslationError("decoding");
   }
 }
