@@ -102,6 +102,18 @@ function forceResetZoomIfNeeded() {
   viewportMetaEl.setAttribute("content", original + ", maximum-scale=1");
   requestAnimationFrame(() => viewportMetaEl.setAttribute("content", original));
 }
+
+// Ein einzelner synchroner Check reicht nicht: visualViewport.scale scheint
+// den tatsächlichen Zoom-Zustand nicht immer sofort widerzuspiegeln (v. a.
+// beim allerersten Tap nach einem PWA-Kaltstart - per Bildschirmaufnahme
+// bestätigt: der erste Tap zoomt hinein, visualViewport.scale meldet das
+// aber noch nicht synchron; erst ein zweiter Tap etwas später konnte den
+// bereits vorhandenen Zoom erkennen und zurücksetzen). Deshalb mehrfach
+// zeitversetzt prüfen statt nur einmal.
+function scheduleZoomChecks() {
+  forceResetZoomIfNeeded();
+  [50, 150, 300, 600].forEach((ms) => setTimeout(forceResetZoomIfNeeded, ms));
+}
 const canGoBack = () => state.navIndex > 0;
 const canGoForward = () => state.navIndex < state.navHistory.length - 1;
 const canGoHome = () => state.isSearching && state.navIndex <= 0;
@@ -351,7 +363,7 @@ searchInputEl.addEventListener("keydown", (e) => {
 });
 
 searchInputEl.addEventListener("focus", () => {
-  forceResetZoomIfNeeded();
+  scheduleZoomChecks();
   if (!state.isSearching) {
     openSearch();
   } else {
@@ -905,7 +917,7 @@ function init() {
   // (v. a. auf iOS). Sobald reingezoomt wurde, sofort zurücksetzen statt
   // erst beim nächsten Fokus/Tab-Wechsel zu reagieren.
   if (window.visualViewport) {
-    window.visualViewport.addEventListener("resize", forceResetZoomIfNeeded);
+    window.visualViewport.addEventListener("resize", scheduleZoomChecks);
   }
 
   // Weiteres Sicherheitsnetz: beim Zurückkehren zur App (Tab-/App-Wechsel,
@@ -914,10 +926,20 @@ function init() {
   const healOnReturn = () => {
     if (document.hidden) return;
     abortDrag();
-    forceResetZoomIfNeeded();
+    scheduleZoomChecks();
   };
   document.addEventListener("visibilitychange", healOnReturn);
   window.addEventListener("pageshow", healOnReturn);
+
+  // Kaltstart-Wachhund: gerade der ALLERERSTE Tap nach PWA-Kaltstart war in
+  // der Bildschirmaufnahme betroffen. Die ersten Sekunden nach dem Laden
+  // deshalb zusätzlich engmaschig auf Zoom prüfen, unabhängig von Fokus-
+  // /Viewport-Events.
+  let coldStartChecks = 0;
+  const coldStartWatchdog = setInterval(() => {
+    forceResetZoomIfNeeded();
+    if (++coldStartChecks >= 15) clearInterval(coldStartWatchdog);
+  }, 200);
 
   if (state.autoFocus) {
     setTimeout(() => openSearch(), 500);
