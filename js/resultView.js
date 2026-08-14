@@ -139,6 +139,7 @@ export function renderResults(container, results, query, sourceLang, targetLang,
       list.appendChild(divider);
     }
 
+    let lastRowEl = null;
     const section = document.createElement("div");
     section.className = "rom-section";
 
@@ -185,9 +186,17 @@ export function renderResults(container, results, query, sourceLang, targetLang,
 
         row.appendChild(inner);
         group.appendChild(row);
+        lastRowEl = row;
       });
       section.appendChild(group);
     });
+
+    // Die letzte Zeile hat schon ihre eigene Trennlinie (border-bottom) –
+    // wenn direkt danach noch ein .rom-divider für den nächsten Eintrag
+    // folgt, würde das zwei Linien übereinander ergeben ("Doppelstrich").
+    if (i < roms.length - 1 && lastRowEl) {
+      lastRowEl.classList.add("no-divider");
+    }
 
     list.appendChild(section);
   });

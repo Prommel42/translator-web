@@ -91,6 +91,10 @@ html, body {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;
+  /* Verhindert, dass mobile Browser die Seite beim Fokussieren der Suchleiste
+     (Scroll-into-view fürs Einblenden der Tastatur) seitlich verschieben. */
+  overflow-x: hidden;
+  width: 100%;
 }
 
 button, input {
@@ -284,7 +288,15 @@ a { color: inherit; text-decoration: none; }
   caret-color: var(--accent);
 }
 .search-input::placeholder { color: var(--text-secondary); }
-.clear-btn { width: 18px; height: 18px; color: var(--text-secondary); flex-shrink: 0; }
+.clear-btn {
+  width: 22px;
+  height: 22px;
+  padding: 7px;
+  margin: -7px;
+  box-sizing: content-box;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
 .clear-btn::before {
   content: "";
   display: block;
@@ -423,6 +435,7 @@ a { color: inherit; text-decoration: none; }
 }
 
 .translation-row { padding: 9px 16px; border-bottom: 1px solid var(--divider); }
+.translation-row.no-divider { border-bottom: none; }
 .translation-row-inner { display: flex; align-items: flex-start; gap: 8px; }
 .word-cell {
   flex: 1;

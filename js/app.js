@@ -798,8 +798,17 @@ function init() {
   setPageOffsets(0);
   updateGestureZones();
 
+  // Nur bei echter Breitenänderung (Rotation/Fenstergröße) neu positionieren.
+  // Das Öffnen der Bildschirmtastatur löst auf vielen Mobilbrowsern ebenfalls
+  // ein resize-Event aus (Höhe ändert sich) - das darf die horizontale
+  // Seiten-Position nicht anfassen, sonst verrutscht das Layout.
+  let lastWidth = pageWidthPx();
   window.addEventListener("resize", () => {
-    setPageOffsets(0);
+    const w = pageWidthPx();
+    if (w !== lastWidth) {
+      lastWidth = w;
+      setPageOffsets(0);
+    }
     renderHomeHistory();
   });
 
