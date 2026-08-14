@@ -38,6 +38,15 @@ const langPickerTitleEl = document.getElementById("lang-picker-title");
 const langPickerDoneEl = document.getElementById("lang-picker-done");
 const langPickerListEl = document.getElementById("lang-picker-list");
 
+// Statische Icons direkt als SVG einsetzen (nicht per CSS-Maske – das war über
+// mehrere Browser hinweg unzuverlässig und hat teils gar nichts Erkennbares
+// gerendert). Gleiche Technik wie überall sonst in der App (resultView.js,
+// historyView.js, icons.js#icon()).
+settingsBtnEl.innerHTML = ICONS.gear;
+clearBtnEl.innerHTML = ICONS.xmarkCircleFilled;
+noKeyBannerEl.querySelector(".icon-wrap").innerHTML = ICONS.keySlash;
+document.querySelector(".link-row .icon-wrap").innerHTML = ICONS.safari;
+
 // ── Persistenz (Port der @AppStorage-Werte) ─────────────────────
 
 const store = {
