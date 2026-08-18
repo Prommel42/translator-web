@@ -40,7 +40,12 @@ function fallbackCopy(text) {
   const ta = document.createElement("textarea");
   ta.value = text;
   ta.style.position = "fixed";
+  ta.style.top = "-1000px";
+  ta.style.left = "-1000px";
   ta.style.opacity = "0";
+  // Mind. 16px, sonst zoomt iOS Safari beim impliziten Fokus durch
+  // .select() hinein (bekannter Auslöser, siehe .text-input weiter oben).
+  ta.style.fontSize = "16px";
   document.body.appendChild(ta);
   ta.select();
   try { document.execCommand("copy"); } catch { /* ignore */ }

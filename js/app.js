@@ -890,6 +890,42 @@ function applyDragVisual(mode, px) {
   }
 }
 
+// ── TEMPORÄRES Diagnose-Overlay ───────────────────────────────────
+//
+// Nur zum Aufspüren des Links-Rand-Bugs - zeigt live die Werte, die für
+// die bisherigen Theorien (Zoom vs. falsch berechnete Position) den
+// Unterschied machen. Wird wieder entfernt, sobald klar ist, welche der
+// beiden Theorien stimmt.
+
+function initDebugOverlay() {
+  const el = document.createElement("div");
+  el.id = "debug-overlay";
+  el.style.cssText =
+    "position:fixed;top:0;left:0;right:0;z-index:99999;background:rgba(220,0,0,0.92);" +
+    "color:#fff;font:9px/1.4 ui-monospace,monospace;padding:3px 5px;white-space:pre-wrap;" +
+    "pointer-events:none;";
+  document.documentElement.appendChild(el);
+
+  function fmt() {
+    const vv = window.visualViewport;
+    const rect = appEl.getBoundingClientRect();
+    const hcs = getComputedStyle(homePageEl);
+    const scs = getComputedStyle(searchPageEl);
+    const lines = [
+      `win ${window.innerWidth}x${window.innerHeight}  screen ${screen.width}x${screen.height}  dpr ${window.devicePixelRatio}`,
+      vv
+        ? `vv ${vv.width.toFixed(0)}x${vv.height.toFixed(0)} scale=${vv.scale.toFixed(3)} off=${vv.offsetLeft.toFixed(0)},${vv.offsetTop.toFixed(0)}`
+        : "vv n/a",
+      `#app rect ${rect.width.toFixed(0)}x${rect.height.toFixed(0)} @${rect.left.toFixed(0)},${rect.top.toFixed(0)}`,
+      `isSearching=${state.isSearching} home--base=${homePageEl.style.getPropertyValue("--base")} home-transform=${hcs.transform}`,
+      `search--base=${searchPageEl.style.getPropertyValue("--base")} search-transform=${scs.transform}`,
+    ];
+    el.textContent = lines.join("\n");
+  }
+
+  setInterval(fmt, 200);
+}
+
 // ── Init ────────────────────────────────────────────────────────
 
 function init() {
@@ -944,6 +980,8 @@ function init() {
   if (state.autoFocus) {
     setTimeout(() => openSearch(), 500);
   }
+
+  initDebugOverlay();
 }
 
 init();
