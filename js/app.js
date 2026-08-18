@@ -586,7 +586,7 @@ function renderSearchPageContent() {
     if (canGoBack()) {
       const prev = document.createElement("div");
       prev.className = "carousel-slot adjacent";
-      prev.style.setProperty("--slot-base", "-1");
+      prev.dataset.slotBase = "-1";
       prev.appendChild(buildSlotContent("result", state.navHistory[state.navIndex - 1]));
       carousel.appendChild(prev);
     }
@@ -594,7 +594,7 @@ function renderSearchPageContent() {
     const current = document.createElement("div");
     current.className = "carousel-slot";
     current.id = "carousel-current";
-    current.style.setProperty("--slot-base", "0");
+    current.dataset.slotBase = "0";
     if (state.isLoading) current.appendChild(buildSlotContent("loading"));
     else if (state.result) current.appendChild(buildSlotContent("result", { query: state.query, result: state.result }));
     else if (state.errorMsg) current.appendChild(buildSlotContent("error"));
@@ -603,38 +603,51 @@ function renderSearchPageContent() {
     if (canGoForward()) {
       const next = document.createElement("div");
       next.className = "carousel-slot adjacent";
-      next.style.setProperty("--slot-base", "1");
+      next.dataset.slotBase = "1";
       next.appendChild(buildSlotContent("result", state.navHistory[state.navIndex + 1]));
       carousel.appendChild(next);
     }
 
     searchContentEl.appendChild(carousel);
+    applyCarouselTransforms(carousel, 0);
   } else if (history.items.length > 0) {
     renderSearchHistoryList(searchContentEl);
   }
 }
 
-// ── Seitenübergänge (Home ↔ Suche) — komplett neu, prozentbasiert ──────
+// ── Seitenübergänge (Home ↔ Suche) ──────────────────────────────
 //
-// Statt die Zielposition in Pixeln auszurechnen (appEl.clientWidth *
-// irgendwas), was bei Zoom/Tastatur/Browser-Eigenheiten leicht falsch
-// werden kann, nutzen wir CSS-Prozent-Transforms: --base ist -1/0/1 (=
-// "eine Seitenbreite links/mittig/rechts von daheim"), das rechnet der
-// Browser selbst anhand der TATSÄCHLICHEN aktuellen Breite aus - dafür
-// gibt es prinzipiell keinen falschen Wert. --drag ist nur der Live-
-// Fingerversatz in Pixeln während einer aktiven Geste und wird bei jedem
-// Loslassen garantiert auf 0 zurückgesetzt (siehe .page-Regel in style.css).
+// style.transform wird direkt per JS gesetzt, Breite bei jedem Aufruf
+// frisch aus appEl gelesen (nicht gecacht). Vorherige Version nutzte
+// CSS-Custom-Properties + calc() im transform - per Diagnose-Overlay
+// bestätigt, dass dieses WebKit-Beta den korrekten Wert zwar berechnet,
+// aber nicht zuverlässig neu zeichnet.
+
+// homeBaseFactor/searchBaseFactor: -1/0/1 = eine Seitenbreite links/mittig/
+// rechts von daheim. Werden mit der bei JEDEM Aufruf frisch gelesenen
+// Breite multipliziert und direkt als style.transform gesetzt (siehe
+// CSS-Kommentar bei .page, warum nicht mehr per --base/calc()).
+let homeBaseFactor = 0;
+let searchBaseFactor = 1;
+let pageDragPx = 0;
+
+function applyPageTransforms() {
+  const pw = pageWidthPx();
+  homePageEl.style.transform = `translate3d(${homeBaseFactor * pw + pageDragPx}px, 0, 0)`;
+  searchPageEl.style.transform = `translate3d(${searchBaseFactor * pw + pageDragPx}px, 0, 0)`;
+}
 
 function setPageBase() {
-  homePageEl.style.setProperty("--base", state.isSearching ? "-1" : "0");
-  searchPageEl.style.setProperty("--base", state.isSearching ? "0" : "1");
+  homeBaseFactor = state.isSearching ? -1 : 0;
+  searchBaseFactor = state.isSearching ? 0 : 1;
   homePageEl.style.pointerEvents = state.isSearching ? "none" : "auto";
   searchPageEl.style.pointerEvents = state.isSearching ? "auto" : "none";
+  applyPageTransforms();
 }
 
 function setPageDrag(px) {
-  homePageEl.style.setProperty("--drag", `${px}px`);
-  searchPageEl.style.setProperty("--drag", `${px}px`);
+  pageDragPx = px;
+  applyPageTransforms();
 }
 
 function withPageAnimation(fn) {
@@ -704,18 +717,31 @@ function resetPagesVisual() {
 
 // ── Nav-Stack-Swipe (zwischen Suchergebnis-Seiten) ───────────────
 //
-// Gleiches Prinzip: nur --slot-base (je Slot um ±1 verschoben) + ein
-// gemeinsames --drag auf dem Carousel-Wrapper (vererbt sich auf die
-// Kind-Slots). Die Inhalte selbst bleiben während der Animation
-// unverändert stehen (der Nachbar-Slot zeigt ja schon die richtigen
-// Daten) - erst NACH der Animation wird der State synchronisiert und
-// neu gerendert.
+// Jeder Slot trägt seine Basis-Position (-1/0/1) in data-slot-base, das
+// Carousel selbst nur den Live-Drag-Versatz. Die Inhalte bleiben während
+// der Animation unverändert stehen (der Nachbar-Slot zeigt ja schon die
+// richtigen Daten) - erst NACH der Animation wird der State synchronisiert
+// und neu gerendert.
+
+// Setzt transform auf jedem Slot direkt (style.transform statt --slot-base/
+// calc()), Breite wird bei jedem Aufruf frisch gelesen. Siehe CSS-Kommentar
+// bei .page für den Hintergrund.
+function applyCarouselTransforms(carouselEl, dragPx) {
+  if (!carouselEl) return;
+  const pw = pageWidthPx();
+  carouselEl.querySelectorAll(".carousel-slot").forEach((slot) => {
+    const base = parseFloat(slot.dataset.slotBase || "0");
+    slot.style.transform = `translate3d(${base * pw + dragPx}px, 0, 0)`;
+  });
+}
 
 function setCarouselDrag(px, animated) {
   const carouselEl = document.getElementById("carousel");
   if (!carouselEl) return;
-  carouselEl.classList.toggle("animated", animated);
-  carouselEl.style.setProperty("--drag", `${px}px`);
+  carouselEl.querySelectorAll(".carousel-slot").forEach((slot) => {
+    slot.classList.toggle("animated", animated);
+  });
+  applyCarouselTransforms(carouselEl, px);
 }
 
 function swipeNavigateCommit(direction) {
@@ -729,12 +755,12 @@ function swipeNavigateCommit(direction) {
   if (navigator.vibrate) navigator.vibrate(10);
   const carouselEl = document.getElementById("carousel");
   if (carouselEl) {
-    carouselEl.classList.add("animated");
-    carouselEl.style.setProperty("--drag", "0px");
     carouselEl.querySelectorAll(".carousel-slot").forEach((slot) => {
-      const base = parseFloat(slot.style.getPropertyValue("--slot-base") || "0");
-      slot.style.setProperty("--slot-base", String(base + direction));
+      slot.classList.add("animated");
+      const base = parseFloat(slot.dataset.slotBase || "0");
+      slot.dataset.slotBase = String(base + direction);
     });
+    applyCarouselTransforms(carouselEl, 0);
   }
   setTimeout(() => {
     state.restoringHistory = true;
@@ -917,8 +943,9 @@ function initDebugOverlay() {
         ? `vv ${vv.width.toFixed(0)}x${vv.height.toFixed(0)} scale=${vv.scale.toFixed(3)} off=${vv.offsetLeft.toFixed(0)},${vv.offsetTop.toFixed(0)}`
         : "vv n/a",
       `#app rect ${rect.width.toFixed(0)}x${rect.height.toFixed(0)} @${rect.left.toFixed(0)},${rect.top.toFixed(0)}`,
-      `isSearching=${state.isSearching} home--base=${homePageEl.style.getPropertyValue("--base")} home-transform=${hcs.transform}`,
-      `search--base=${searchPageEl.style.getPropertyValue("--base")} search-transform=${scs.transform}`,
+      `isSearching=${state.isSearching}`,
+      `home  inline=${homePageEl.style.transform || "(leer)"}  computed=${hcs.transform}`,
+      `search inline=${searchPageEl.style.transform || "(leer)"}  computed=${scs.transform}`,
     ];
     el.textContent = lines.join("\n");
   }
